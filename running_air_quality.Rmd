@@ -1,0 +1,182 @@
+---
+title: "Best hour to run"
+author: "James Johnson"
+date: "July 15, 2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## I'm a bit of a dork about air pollution
+
+I'm currently about to start a PhD with a focus on whether air pollution can make people sick. As a result, I'm constantly thinking about the impact of the environment on the lives we live.
+ I'm a city dweller, meaning when i go for a run, it's goign to be in an urban environment, near a bunch of cars, trucks, lawnmowers, bbqs, smokers and other potential noise and pollution sources. What bothers me about most air quality research is the time resolution of the data. 
+ 
+ In my field, we often make claims about air quality based on the annual concentrations of pollution in an area. This is really important for policy decisions, because we can say with certainty that, for example, Hamilton, is consistently more polluted than Toronto. This is thanks in part to more industrial activity, and also because of the Niagara escarpment trapping pollution inside it like a fish bowl. These annual concentrations don't, however, tell me when the best time would be to go for a run, if i was interested in experiencing a bit less pollution. So being the aforementioned dork that I am, I decided to explore this a bit further with a bit of R code.
+ 
+### The MECP website
+
+There's a lot of content to explore on the Ministry of Environment, Conservation and Parks (MECP) website. Historic reports, and lots of different summaries of the air pollution data captured across Ontario. You can get recent data (from the past 2 years, and even close to live data) from the website as it exists. But for this example, i'm going to use the data that's already gone through a Quality check from the MECP - this (as of July 15, 2019) means 2017 and earlier.
+
+I'll be exploring today using the rvest package to scrape some air data from the MECP, to try to figure out what might be the best time of the day, from an air pollution perspective, to go for a run in Downtown Toronto.
+
+First, the [website](http://www.airqualityontario.com/history/):
+
+![MECP website](assets/Pollutant_history.PNG)
+
+As you can see, I've chosen some defaults to explore Toronto's Downtown site, and i've not completed the end month, with the hope that i'll just get the whole year of data:
+
+![Success!!](assets/data_capture.PNG)
+
+If I scroll down, it looks like a full year of data! It's a bit of a mess though - the columns of hour data are goign to make it very hard to summarize. I'm going to use the `rvest` and some `tidyverse` packages to try to see if I can get the answer I'm looking for. Thanks to [this helpful tutorial](https://www.analyticsvidhya.com/blog/2017/03/beginners-guide-on-web-scraping-in-r-using-rvest-with-hands-on-knowledge/) for getting me started with `rvest`.  
+
+```{r}
+
+#Loading the rvest package
+library(rvest)
+library(tidyverse)
+library(lubridate)
+
+#Specifying the url for desired website to be scraped
+url <- "http://www.airqualityontario.com/history/?c=Personal&s=31103&y=2017&p=36&m=1&e=&t=html&submitter=Search&i=1"
+
+webpage <- read_html(url)
+
+poln_table <- html_nodes(webpage,'table')
+
+rank_data <- html_table(poln_table)[[1]]
+
+rank_data %>% 
+  gather(Hour, Conc, H01:H24) %>%
+  mutate(Conc =ifelse(Conc == 9999|Conc == -999, NA, Conc),
+         month = month(Date),
+         season = ifelse(month >=10|month <=3,"Winter","Construction")) %>% 
+  arrange(Date) %>%
+  ggplot(aes(Hour, Conc)) +
+  geom_boxplot() +
+  facet_wrap(~season)
+  
+start_year <- 2013
+end_year <- 2017
+all_data <- tibble()
+for(year in start_year:end_year){
+  url <- paste0("http://www.airqualityontario.com/history/?c=Personal&s=31103&y=",year,"&p=36&m=1&e=&t=html&submitter=Search&i=1")
+  webpage <- read_html(url)
+  poln_table <- html_nodes(webpage,'table')
+  rank_data <- html_table(poln_table)[[1]]
+  all_data <- rbind(all_data,rank_data)
+}
+
+all_data %>% 
+  gather(Hour, Conc, H01:H24) %>%
+  mutate(Conc =ifelse(Conc == 9999|Conc == -999, NA, Conc),
+         month = month(Date),
+         season = ifelse(month >=10|month <=3,"Winter","Construction")) %>% 
+  arrange(Date) %>%
+  ggplot(aes(Hour, Conc)) +
+  geom_boxplot() +
+  facet_wrap(~season)
+
+
+
+```
+
+```{r}
+library(stringr)
+# Identifying site options
+url <- "http://www.airqualityontario.com/history/"
+
+webpage <- read_html(url)
+
+webpage %>%  
+  html_nodes('p')
+  
+cities <- webpage %>% 
+  html_node('#s') %>% 
+  as.character() %>% 
+  str_split('option value=\"') %>% 
+  as_vector()
+
+station_names <-
+  cities[str_which(cities,'[:digit:]">[a-zA-Z0-9 .]+</option')] %>% 
+  str_match_all(pattern = '>[a-zA-Z0-9 .]+</option') %>% 
+  unlist() %>%  
+  str_remove("</option") %>% 
+  str_remove('>')
+
+station_ids <-  str_match_all(cities,"[:digit:]{5}") %>% unlist() 
+
+Stations <- tibble(Station_Name =station_names, Station_ID = station_ids)
+
+Pollutants <- webpage %>% 
+  html_node('#p') %>% 
+  as.character() %>%
+  str_split("option id") %>% 
+  as_vector()
+ 
+Pollutant_Name <-
+  Pollutants[str_which(Pollutants,'p0',negate = T)] %>%
+  str_match_all(pattern = '[a-zA-Z0-9 -().]+</option') %>%
+  unlist() %>%  
+  str_remove("</option")
+
+Pollutant_code <-
+  Pollutants[str_which(Pollutants,'p0',negate = T)] %>%
+  str_match_all(pattern = 'p[:digit:]{1,3}') %>% 
+  unlist()
+
+Pollution_codes <- tibble(Pollutant = Pollutant_Name, Poll_code = Pollutant_code)
+
+
+rank_data <- sites[[1]]
+tibble(location)
+<select name="s" id="s">
+			<option value="">Select Station</option>
+		<option value="47045">Barrie</option>
+<option value="54012">Belleville</option>
+<option value="21005">Brantford</option>
+<option value="44008">Burlington</option>
+<option value="46090">Brampton</option>
+<option value="13001">Chatham</option>
+<option value="56051">Cornwall</option>
+<option value="49010">Dorset</option>
+<option value="15020">Grand Bend</option>
+<option value="28028">Guelph</option>
+<option value="29000">Hamilton Downtown</option>
+<option value="29118">Hamilton West</option>
+<option value="29214">Hamilton Mountain</option>
+<option value="52023">Kingston</option>
+<option value="26060">Kitchener</option>
+<option value="15026">London</option>
+<option value="13021">Merlin</option>
+<option value="44029">Milton</option>
+<option value="46108">Mississauga</option>
+<option value="48006">Newmarket</option>
+<option value="75010">North Bay</option>
+<option value="44017">Oakville</option>
+<option value="51001">Ottawa Downtown</option>
+<option value="45027">Oshawa</option>
+<option value="49005">Parry Sound</option>
+<option value="51010">Petawawa</option>
+<option value="59006">Peterborough</option>
+<option value="16015">Port Stanley</option>
+<option value="14111">Sarnia</option>
+<option value="71078">Sault Ste. Marie</option>
+<option value="22071">Simcoe</option>
+<option value="27067">St. Catharines</option>
+<option value="48002">Stouffville</option>
+<option value="77233">Sudbury</option>
+<option value="63203">Thunder Bay</option>
+<option value="18007">Tiverton</option>
+<option value="31103">Toronto Downtown</option>
+<option value="33003">Toronto East</option>
+<option value="34021">Toronto North</option>
+<option value="35125">Toronto West</option>
+<option value="12008">Windsor Downtown</option>
+<option value="12016">Windsor West</option>
+		</select>
+
+```
+
