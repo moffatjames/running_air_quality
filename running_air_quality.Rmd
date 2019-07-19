@@ -20,7 +20,7 @@ I'm currently about to start a PhD with a focus on whether air pollution can mak
 
 There's a lot of content to explore on the Ministry of Environment, Conservation and Parks (MECP) website. Historic reports, and lots of different summaries of the air pollution data captured across Ontario. You can get recent data (from the past 2 years, and even close to live data) from the website as it exists. But for this example, i'm going to use the data that's already gone through a Quality check from the MECP - this (as of July 15, 2019) means 2017 and earlier.
 
-I'll be exploring today using the rvest package to scrape some air data from the MECP, to try to figure out what might be the best time of the day, from an air pollution perspective, to go for a run in Downtown Toronto.
+I'll be exploring today using the rvest package to scrape some air data from the MECP, to try to figure out what might be the best time of the day, from an air pollution perspective, to go for a run in Downtown Toronto. At a future date, I'll be posting a tutorial to walk through how I scraped the Ministry website using R.
 
 First, the [website](http://www.airqualityontario.com/history/):
 
@@ -38,7 +38,7 @@ If I scroll down, it looks like a full year of data! It's a bit of a mess though
 library(rvest)
 library(tidyverse)
 library(lubridate)
-
+source(file = '1_ref_tables.R')
 #Specifying the url for desired website to be scraped
 url <- "http://www.airqualityontario.com/history/?c=Personal&s=31103&y=2017&p=36&m=1&e=&t=html&submitter=Search&i=1"
 
@@ -79,104 +79,54 @@ all_data %>%
   geom_boxplot() +
   facet_wrap(~season)
 
+AQHI <- pollution_codes[str_which(pollution_codes$pollutant,"PM2.5|NO2|O3"),] %>% 
+  mutate(name = str_extract(pollutant, "PM2.5|NO2|O3"))
 
-
-```
-
-```{r}
-library(stringr)
-# Identifying site options
-url <- "http://www.airqualityontario.com/history/"
-
-webpage <- read_html(url)
-
-webpage %>%  
-  html_nodes('p')
+start_year <- 2013
+end_year <- 2017
+all_data <- tibble()
+for(year in start_year:end_year){
+  station_URL <-  paste0("http://www.airqualityontario.com/history/?c=Personal&s=31103&y=",year,"&",AQHI$poll_code[1],"&m=1&e=&t=html&submitter=Search&i=1")
+  webpage <- read_html(station_URL)
+  poln_table <- html_nodes(webpage,'table')
+  station_data <- html_table(poln_table)[[1]] %>% 
+    gather(Hour, Conc, H01:H24) %>%
+  arrange(Date) %>% 
+  select(-Conc)
   
-cities <- webpage %>% 
-  html_node('#s') %>% 
-  as.character() %>% 
-  str_split('option value=\"') %>% 
-  as_vector()
-
-station_names <-
-  cities[str_which(cities,'[:digit:]">[a-zA-Z0-9 .]+</option')] %>% 
-  str_match_all(pattern = '>[a-zA-Z0-9 .]+</option') %>% 
-  unlist() %>%  
-  str_remove("</option") %>% 
-  str_remove('>')
-
-station_ids <-  str_match_all(cities,"[:digit:]{5}") %>% unlist() 
-
-Stations <- tibble(Station_Name =station_names, Station_ID = station_ids)
-
-Pollutants <- webpage %>% 
-  html_node('#p') %>% 
-  as.character() %>%
-  str_split("option id") %>% 
-  as_vector()
- 
-Pollutant_Name <-
-  Pollutants[str_which(Pollutants,'p0',negate = T)] %>%
-  str_match_all(pattern = '[a-zA-Z0-9 -().]+</option') %>%
-  unlist() %>%  
-  str_remove("</option")
-
-Pollutant_code <-
-  Pollutants[str_which(Pollutants,'p0',negate = T)] %>%
-  str_match_all(pattern = 'p[:digit:]{1,3}') %>% 
-  unlist()
-
-Pollution_codes <- tibble(Pollutant = Pollutant_Name, Poll_code = Pollutant_code)
+  for(pollutant in 1:3){
+    url <- paste0("http://www.airqualityontario.com/history/?c=Personal&s=31103&y=",year,"&",AQHI$poll_code[pollutant],"&m=1&e=&t=html&submitter=Search&i=1")
+    webpage <- read_html(url)
+    poln_table <- html_nodes(webpage,'table')
+    poll_data <- html_table(poln_table)[[1]] %>% 
+      gather(Hour, Conc, H01:H24) %>%
+      arrange(Date)%>% 
+      select(Date, Hour, Conc)
+    names(poll_data)[3] <-  AQHI$name[pollutant]
+  
+    station_data <- left_join(station_data,poll_data)
+  }
+  all_data <- rbind(all_data, station_data)
+}
 
 
-rank_data <- sites[[1]]
-tibble(location)
-<select name="s" id="s">
-			<option value="">Select Station</option>
-		<option value="47045">Barrie</option>
-<option value="54012">Belleville</option>
-<option value="21005">Brantford</option>
-<option value="44008">Burlington</option>
-<option value="46090">Brampton</option>
-<option value="13001">Chatham</option>
-<option value="56051">Cornwall</option>
-<option value="49010">Dorset</option>
-<option value="15020">Grand Bend</option>
-<option value="28028">Guelph</option>
-<option value="29000">Hamilton Downtown</option>
-<option value="29118">Hamilton West</option>
-<option value="29214">Hamilton Mountain</option>
-<option value="52023">Kingston</option>
-<option value="26060">Kitchener</option>
-<option value="15026">London</option>
-<option value="13021">Merlin</option>
-<option value="44029">Milton</option>
-<option value="46108">Mississauga</option>
-<option value="48006">Newmarket</option>
-<option value="75010">North Bay</option>
-<option value="44017">Oakville</option>
-<option value="51001">Ottawa Downtown</option>
-<option value="45027">Oshawa</option>
-<option value="49005">Parry Sound</option>
-<option value="51010">Petawawa</option>
-<option value="59006">Peterborough</option>
-<option value="16015">Port Stanley</option>
-<option value="14111">Sarnia</option>
-<option value="71078">Sault Ste. Marie</option>
-<option value="22071">Simcoe</option>
-<option value="27067">St. Catharines</option>
-<option value="48002">Stouffville</option>
-<option value="77233">Sudbury</option>
-<option value="63203">Thunder Bay</option>
-<option value="18007">Tiverton</option>
-<option value="31103">Toronto Downtown</option>
-<option value="33003">Toronto East</option>
-<option value="34021">Toronto North</option>
-<option value="35125">Toronto West</option>
-<option value="12008">Windsor Downtown</option>
-<option value="12016">Windsor West</option>
-		</select>
+saveRDS(all_data,"DT-toronto2013-17")
+
+DT_tor <- all_data %>% 
+  mutate(month = month(Date),
+         season = ifelse(month >=10|month <=3,"Winter","Construction")) %>%
+  gather(key = poll_type, Conc, NO2:PM2.5) %>% 
+  mutate(Conc =ifelse(Conc == 9999|Conc == -999, NA, Conc))
+
+ggplot(DT_tor, aes(Hour,Conc, fill = poll_type,col = poll_type)) +
+  geom_boxplot() +
+  facet_wrap(~season)
+
 
 ```
+
+
+
+
+
 
