@@ -1,5 +1,6 @@
 library(stringr)
 library(rvest)
+library(tidyverse)
 
 
 # Identifying site options - Scraping the website for defaults
