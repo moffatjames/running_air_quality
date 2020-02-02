@@ -35,14 +35,14 @@ pollutants <- webpage %>%
   as_vector()
 
 pollutant_name <-
-  pollutants[str_which(pollutants,'p0',negate = T)] %>%
+  pollutants[-str_which(pollutants,'p0')] %>%
   str_match_all(pattern = '[a-zA-Z0-9 -().]+</option') %>%
   unlist() %>%  
   str_remove("</option")%>% 
   str_replace(pattern ="level",replacement = "Ground-level")
 
 pollutant_code <-
-  pollutants[str_which(pollutants,'p0',negate = T)] %>%
+  pollutants[-str_which(pollutants,'p0')] %>%
   str_match_all(pattern = 'p[:digit:]{1,3}') %>% 
   unlist() %>% 
   str_replace(pattern = "p",replacement = "p=")

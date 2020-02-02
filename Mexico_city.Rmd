@@ -1,0 +1,30 @@
+---
+title: "Mexico_city_Toronto_comparison"
+author: "James Johnson"
+date: "February 1, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(lubridate)
+library(readxl)
+```
+
+## Assignment 2
+
+- Identify a highly polluted city in the world (or small geographic region)
+- Justify your selection of being highly polluted based on available data and standards/resources
+-Describe condisitons for several air pollutants
+ - levesl, seasonalily, responsible sources, public awareness, current efforts the responsible government is taking to improve air quality.
+ - Compare levels in that highly polluted place with Toronto for PM2.5, NO2, and O3
+ 
+ ## Mexico City
+ 
+
+```{r}
+MC_data <- readRDS("data/MC_data2013-2017.Rds")
+```
+ 
