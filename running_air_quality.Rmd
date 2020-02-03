@@ -130,7 +130,7 @@ Building download function
 AQHI <- pollution_codes[str_which(pollution_codes$pollutant,"PM2.5|NO2|O3"),] %>% 
   mutate(name = str_extract(pollutant, "PM2.5|NO2|O3"))
 
-AQO_dl <- function(start_year = 2017,end_year = 2017,station = 31103){
+AQO_dl <- function(start_year = 2013,end_year = 2017,station = 31103){
 
 all_data <- tibble()
 for(year in start_year:end_year){
@@ -159,7 +159,22 @@ for(year in start_year:end_year){
 return(all_data)
 }
 
-newmkt <- AQO_dl(station = 48006)
+tor_dt <- readRDS("data/DT-toronto2013-17.Rds") %>% mutate(station = "tor_dt")
+tor_east <- AQO_dl(station = 33003,start_year = 2013,end_year = 2017)
+tor_north <- AQO_dl(station = 34021,start_year = 2013,end_year = 2017)
+tor_west <- AQO_dl(station = 35125,start_year = 2013,end_year = 2017)
+
+tor_dt <- tor_dt  %>% gather(pollutant,value,  c(NO2:PM2.5))
+tor_east <- tor_east %>% mutate(station = "tor_east")  %>% gather(pollutant,value,  c(NO2:PM2.5))
+tor_north <- tor_north %>% mutate(station = "tor_north") %>% gather(pollutant,value,  c(NO2:PM2.5))
+tor_west <- tor_west %>% mutate(station = "tor_west")  %>% gather(pollutant,value,  c(NO2:PM2.5))
+
+tor_all <- tor_dt %>% 
+  left_join(tor_east) %>% 
+  left_join(tor_north) %>% 
+  left_join(tor_west)
+
+saveRDS(tor_all, "data/tor_all_2013_17.Rds")
 
 tor_new <- bind_rows(t_dt,newmkt)
 

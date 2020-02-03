@@ -23,8 +23,44 @@ library(readxl)
  
  ## Mexico City
  
+ ### Topography
+Mexico City is in an elevated basin surrounded on three sides by mountain ridges on to the east, south and west. There is a broad opening to the north and a narrow gap to the south-southwest. (Harvard) Two major volcanoes are located in the southeast. Within the basin, the mountains and frequent thermal inversions trap pollutants within the basin. The high altitude also makes combustion sources less efficient.
+ 
+ The Mexico City Metropolitan Area (MCMA) is located in an elevated basin surrounded by mountain ridges on three sides (east, south, and west) with a broad opening to the north and a narrow gap to the south-southwest. Two major volcanoes are located in the southeast. The mountains and frequent thermal inversions trap pollutants within the basin. In addition, the high altitude makes combustion sources less efficient. 
+ 
 
 ```{r}
 MC_data <- readRDS("data/MC_data2013-2017.Rds")
+MC.poll.labs <- c(bquote("NO" [2] ~ "(ppb)"), bquote("PM" [2.5] ~ "("*mu * g/m^3*")"), bquote("O" [3] ~ "(ppb)"))
+
+~ y[i] == alpha
+
+monthly <- MC_data %>%
+  mutate(year = year(date),
+         month = floor_date(date,unit = "1 month"))%>% 
+  filter(station == "XAL"|station == "COY"|station == "PED"|station == "HGM") %>%
+  gather(pollutant,value, c(NO2:O3)) %>% 
+  filter(value > 0) %>% 
+  group_by(year,month,pollutant,station) %>% 
+  summarize(mean = mean(value)) %>% 
+  ungroup %>% 
+  mutate(month2 = as.Date(paste0("2013-", month,"-01"),"%Y-%m-%d")) %>% 
+  mutate(pollutant = factor(pollutant, levels = c("NO2","PM25","O3"), labels = MC.poll.labs ))
+
+
+ggplot(monthly, aes(month,mean, col = station)) +
+  geom_path(alpha = 0.8) +
+  geom_point(size = 1, alpha = 0.8) +
+  facet_wrap(~pollutant,nrow = 3, labeller = label_parsed) +
+  scale_x_date(date_breaks = "3 months",date_labels = "%y %b") +
+  theme_light() +
+  theme(axis.text.x = element_text(angle = 45))+
+  labs(title = "Mexico City average monthly pollutant concentrations\n2013-2017", y = "Pollutant concentration", x = "Date (yy - mmm)")
+
+MC_data %>% 
+   filter(!is.na(PM25)) %>%
+  filter(PM25>0) %>% 
+   count(station) 
+
 ```
  

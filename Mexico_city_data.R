@@ -1,6 +1,8 @@
 library(tidyverse)
 library(lubridate)
 library(readxl)
+library(sf)
+library(tmap)
 
 ## first will pull all NO2 data
 
@@ -32,3 +34,56 @@ saveRDS(MC_data,file = "data/MC_data2013-2017.Rds")
 MC_data %>% 
    filter(!is.na(PM25)) %>% 
   count(station)
+
+mexico <- c("Álvaro Obregón"
+,"Azcapotzalco"
+,"Benito Juárez"
+,"Coyoacán"
+,"Cuajimalpa de Morelos"
+,"Cuauhtémoc"
+,"Gustavo A. Madero"
+,"Iztacalco"
+,"Iztapalapa"
+,"Magdalena Contreras"
+,"Miguel Hidalgo"
+,"Milpa Alta"
+,"Tláhuac"
+,"Tlalpan"
+,"Venustiano Carranza"
+,"XochimilcoÁlvaro Obregón"
+,"Azcapotzalco"
+,"Benito Juárez"
+,"Coyoacán"
+,"Cuajimalpa de Morelos"
+,"Cuauhtémoc"
+,"Gustavo A. Madero"
+,"Iztacalco"
+,"Iztapalapa"
+,"Magdalena Contreras"
+,"Miguel Hidalgo"
+,"Milpa Alta"
+,"Tláhuac"
+,"Tlalpan"
+,"Venustiano Carranza"
+,"Xochimilco")
+
+CDMX <- mc_cities %>% 
+  #filter(NOM_MUN %in% mexico) %>% 
+  filter(CVE_ENT == "09")
+
+plot(st_geometry(CDMX))
+
+MC_crs <- st_crs(CDMX)
+MC_bbox <- st_bbox(CDMX)
+
+mc_stations <- read_xls("data/MC_stations.xls",sheet = 2) 
+ sfc_mc <-  st_as_sf(mc_stations,coords = c("Longitude","Latitude"))
+mc_stations <- st_transform(mc_stations, st_crs(CDMX))
+
+
+View(mc_stations)
+
+tm_shape(CDMX) +
+  tm_polygons() +
+tm_shape(sfc_mc) +
+  tm_dots("Code",size = 2)
