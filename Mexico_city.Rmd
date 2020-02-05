@@ -11,6 +11,11 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(lubridate)
 library(readxl)
+library(gt)
+
+MC_data <- readRDS("data/MC_data2013-2017.Rds")
+MC.poll.labs <- c(bquote("NO" [2] ~ "(ppb)"), bquote("PM" [2.5] ~ "("*mu * g/m^3*")"), bquote("O" [3] ~ "(ppb)"))
+
 ```
 
 ## Assignment 2
@@ -21,24 +26,97 @@ library(readxl)
  - levesl, seasonalily, responsible sources, public awareness, current efforts the responsible government is taking to improve air quality.
  - Compare levels in that highly polluted place with Toronto for PM2.5, NO2, and O3
  
- ## Mexico City
+## Mexico City
  
- ### Topography
+### Topography
+
 Mexico City is in an elevated basin surrounded on three sides by mountain ridges on to the east, south and west. There is a broad opening to the north and a narrow gap to the south-southwest. (Harvard) Two major volcanoes are located in the southeast. Within the basin, the mountains and frequent thermal inversions trap pollutants within the basin. The high altitude also makes combustion sources less efficient.
+
+```{r mc_map}
+
+```
+
+ ### Air quality
  
- The Mexico City Metropolitan Area (MCMA) is located in an elevated basin surrounded by mountain ridges on three sides (east, south, and west) with a broad opening to the north and a narrow gap to the south-southwest. Two major volcanoes are located in the southeast. The mountains and frequent thermal inversions trap pollutants within the basin. In addition, the high altitude makes combustion sources less efficient. 
+```{r}
+
+daily_MC <- MC_data %>%
+  mutate(year = year(date),
+         trimes = floor_date(date, unit = "3 months"),
+         month = floor_date(date,unit = "1 month"),
+         day = floor_date(date, unit = "1 day"),
+         month_num = month(date)) %>% 
+  mutate(season = ifelse(month_num %in% c(11,12,1,2),"Cool",ifelse(month_num %in% c(3,4,5),"Warm","Rainy"))) %>%
+  mutate(season = fct_inorder(season)) %>% 
+  filter(station == "HGM") %>% 
+  gather(pollutant, value, NO2:SO2) %>%
+  filter(value > 0) %>% 
+  group_by(season, hour, pollutant) %>% 
+  summarise(mean_hourly =mean(value))
+
+daily_MC %>% 
+  ggplot(aes(hour,mean_hourly, col = pollutant)) +
+  geom_line() +
+  facet_wrap(~season) +
+  theme_light() +
+  labs (title = "2013-2017 pollution at Hospital General Mexico (HGM)\naveraged by hour",
+        x = "Hour of day", y = "pollutant")
+
+
+day_Mc <-  MC_data %>%
+  mutate(year = year(date),
+         trimes = floor_date(date, unit = "3 months"),
+         month = floor_date(date,unit = "1 month"),
+         day = floor_date(date, unit = "1 day")) %>% 
+  filter(station == "XAL"|station == "COY"|station == "BJU"|station == "HGM") %>%
+  filter(PM25 >0) %>% 
+  group_by(station, year, trimes, day) %>% 
+  summarize(mean = mean(PM25,na.rm = T),quint_75 = quantile(PM25, 0.75,na.rm = T),quint_98 = quantile(PM25, 0.98,na.rm = T)) %>% 
+  ungroup()
+
+days_above <- day_Mc %>%
+  mutate(above_25 = mean > 25,
+         above_45 = mean > 45) %>% 
+  group_by(station, year) %>% 
+  summarize(above_WHO = sum(above_25), above_NOM = sum(above_45)) %>% 
+  ungroup() %>% 
+  gather(standard,days_above, above_WHO:above_NOM)
+
+ggplot(days_above,aes(factor(year),days_above, fill = station)) + geom_bar(stat = "identity", position = "dodge") + facet_wrap(~standard) + theme_light() + labs(y = "Days above standard", x = "Air quality station")
+
+Mc_24_hr <- day_Mc %>% 
+  group_by(station, year) %>%
+  summarize(quant_75 = quantile(mean, 0.75)) %>% 
+  spread(station,quant_75) %>% 
+  gt() 
+Mc_24_hr
+
+Mc_annual <- day_Mc %>% 
+  group_by(station, year,trimes) %>%
+  summarize(mean_quint = quantile(mean,0.75, na.rm = T)) %>% 
+  ungroup() %>% 
+  group_by(station,year) %>% 
+  summarize(annual_mean = mean(mean_quint, na.rm = T)) %>% 
+  spread(station, annual_mean) %>% 
+  gt()
+Mc_annual
+ggplot(day_Mc, aes(day,quint_75,col = station)) + geom_line()
+  
+  
+
+```
  
+ 
+
 
 ```{r}
-MC_data <- readRDS("data/MC_data2013-2017.Rds")
-MC.poll.labs <- c(bquote("NO" [2] ~ "(ppb)"), bquote("PM" [2.5] ~ "("*mu * g/m^3*")"), bquote("O" [3] ~ "(ppb)"))
 
-~ y[i] == alpha
+
 
 monthly <- MC_data %>%
   mutate(year = year(date),
          month = floor_date(date,unit = "1 month"))%>% 
-  filter(station == "XAL"|station == "COY"|station == "PED"|station == "HGM") %>%
+  filter(station == "XAL"|station == "COY"|station == "BJU"|station == "HGM") %>%
   gather(pollutant,value, c(NO2:O3)) %>% 
   filter(value > 0) %>% 
   group_by(year,month,pollutant,station) %>% 
@@ -61,6 +139,8 @@ MC_data %>%
    filter(!is.na(PM25)) %>%
   filter(PM25>0) %>% 
    count(station) 
+
+
 
 ```
  
